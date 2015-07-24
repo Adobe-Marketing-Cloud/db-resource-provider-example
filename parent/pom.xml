@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.adobe.examples</groupId>
+    <artifactId>db-examples-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>DB Examples Parent</name>
+
+    <organization>
+        <name>Adobe</name>
+        <url>https://www.adobe.com</url>
+    </organization>
+
+    <properties>
+        <host>localhost</host>
+        <port>4502</port>
+        <server>http://${host}:${port}</server>
+        <username>admin</username>
+        <password>admin</password>
+        <slf4j.version>1.6.6</slf4j.version>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-bundle-plugin</artifactId>
+                    <version>2.5.3</version>
+                    <extensions>true</extensions>
+                    <executions>
+                        <execution>
+                            <id>semantic-versioning</id>
+                            <goals>
+                                <goal>baseline</goal>
+                            </goals>
+                            <configuration>
+                                <failOnError>true</failOnError>
+                                <failOnWarning>true</failOnWarning>
+                            </configuration>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <remoteOBR>NONE</remoteOBR>
+                        <instructions>
+                            <Bundle-Category>db-example</Bundle-Category>
+                        </instructions>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.felix</groupId>
+                    <artifactId>maven-scr-plugin</artifactId>
+                    <version>1.21.0</version>
+                    <executions>
+                        <execution>
+                            <id>generate-scr-descriptors</id>
+                            <phase>compile</phase>
+                            <goals>
+                                <goal>scr</goal>
+                            </goals>
+                            <configuration>
+                                <properties>
+                                    <service.vendor>${project.organization.name}</service.vendor>
+                                </properties>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.sling</groupId>
+                    <artifactId>maven-sling-plugin</artifactId>
+                    <version>2.1.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.day.jcr.vault</groupId>
+                    <artifactId>content-package-maven-plugin</artifactId>
+                    <version>0.0.24</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <failOnError>true</failOnError>
+                        <failOnMissingEmbed>true</failOnMissingEmbed>
+                        <group>${project.groupId}</group>
+                        <version>${project.version}</version>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>installBundle</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.sling</groupId>
+                            <artifactId>maven-sling-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>install-bundle</id>
+                                    <phase>package</phase>
+                                    <goals>
+                                        <goal>install</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                            <configuration>
+                                <slingUrl>${server}/apps/db-example/install</slingUrl>
+                                <user>${username}</user>
+                                <password>${password}</password>
+                                <usePut>true</usePut>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+
+        <profile>
+            <id>installPackage</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.day.jcr.vault</groupId>
+                            <artifactId>content-package-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>install-package</id>
+                                    <phase>package</phase>
+                                    <goals>
+                                        <goal>install</goal>
+                                    </goals>
+                                    <configuration>
+                                        <verbose>true</verbose>
+                                        <userId>${username}</userId>
+                                        <password>${password}</password>
+                                        <targetURL>${server}/crx/packmgr/service.jsp</targetURL>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+    </profiles>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.adobe.examples</groupId>
+                <artifactId>db-examples-resource-provider</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>1.4.187</version>
+            </dependency>
+
+            <dependency>
+                <groupId>javax.servlet</groupId>
+                <artifactId>servlet-api</artifactId>
+                <version>2.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.api</artifactId>
+                <version>2.9.0</version>
+            </dependency>
+
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.apache.felix.scr.annotations</artifactId>
+                <version>1.9.12</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
+

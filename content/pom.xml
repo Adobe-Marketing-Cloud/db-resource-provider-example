@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.adobe.examples</groupId>
+        <artifactId>db-examples-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>db-examples-content</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>content-package</packaging>
+
+    <name>DB Examples Content</name>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/content/jcr_root</directory>
+            </resource>
+            <resource>
+                <directory>src/main/content/META-INF</directory>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>com.day.jcr.vault</groupId>
+                <artifactId>content-package-maven-plugin</artifactId>
+                <configuration>
+                    <embeddedTarget>/apps/db-example/install</embeddedTarget>
+                    <embeddeds>
+                        <embedded>
+                            <groupId>com.h2database</groupId>
+                            <artifactId>h2</artifactId>
+                        </embedded>
+                        <embedded>
+                            <groupId>org.jooq</groupId>
+                            <artifactId>jooq</artifactId>
+                        </embedded>
+                        <embedded>
+                            <groupId>com.adobe.examples</groupId>
+                            <artifactId>db-examples-resource-provider</artifactId>
+                        </embedded>
+                    </embeddeds>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq</artifactId>
+            <version>3.6.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.adobe.examples</groupId>
+            <artifactId>db-examples-resource-provider</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>
+
