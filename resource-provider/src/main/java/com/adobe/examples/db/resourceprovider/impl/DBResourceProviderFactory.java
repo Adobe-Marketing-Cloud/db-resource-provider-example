@@ -120,7 +120,8 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
 
         final HashMap<String, Object> accountsProperties = new HashMap<String, Object>();
         accountsProperties.put("tableName", "accounts");
-        persistedData.put("accounts", new DBTableResourceData(rootPath + "/accounts", accountsProperties));
+        final String path = rootPath + "/accounts";
+        persistedData.put(path, new DBTableResourceData(path, accountsProperties));
         LOG.info("DB Resource Provider Factory for DataSource named [{}] activated", dataSourceName);
     }
 

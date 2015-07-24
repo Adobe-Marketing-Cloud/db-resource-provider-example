@@ -17,7 +17,11 @@ For development it is also useful to only update the bundle
     
 Testing CRUD with curl:
 
-    curl -X POST -u admin:admin -F"./userid=julian -F"./n -F"./name=Julian Sedding" "http://localhost:4502/examples/db/accounts/*"
+    curl -X POST -u admin:admin -F"./userid=john" -F"./name=John Doe" -F":nameHint=john" "http://localhost:4502/examples/db/accounts/*"
+
+Rendering the result in a browser:
+
+    http://localhost:4502/examples/db/accounts.tidy.-1.json
 
 By default an in-memory H2 database is created due to the connection url configured in
 
