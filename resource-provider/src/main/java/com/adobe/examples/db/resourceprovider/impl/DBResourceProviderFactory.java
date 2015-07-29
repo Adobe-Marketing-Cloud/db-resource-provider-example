@@ -10,14 +10,7 @@ import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.ResourceProvider;
 import org.apache.sling.api.resource.ResourceProviderFactory;
-import org.apache.sling.api.resource.ResourceResolver;
-import org.apache.sling.api.resource.ResourceUtil;
 import org.apache.sling.api.wrappers.ValueMapDecorator;
-import org.jooq.DSLContext;
-import org.jooq.SQLDialect;
-import org.jooq.Table;
-import org.jooq.impl.DSL;
-import org.jooq.util.h2.H2DataType;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Filter;
 import org.osgi.framework.InvalidSyntaxException;
@@ -30,11 +23,7 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Component(
         metatype = true,
@@ -56,22 +45,18 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
 
     private static final String FILTER_TEMPLATE = "(&(datasource.name=%s)(objectClass=javax.sql.DataSource))";
 
+    private String dataSourceName;
     private DataSource dataSource;
     private ServiceTracker<DataSource, DataSource> dataSourceTracker;
-    private String dataSourceName;
     private ServiceReference<DataSource> dataSourceReference;
     private Connection connection;
-    private DSLContext dslContext;
     private String rootPath;
-
-
-    //TODO: temporary in-memory persistence - DB is ignored for now
-    private final Map<String, ResourceData> persistedData = new ConcurrentHashMap<String, ResourceData>();
+    private DBResourceDataFactory dataFactory;
 
     public ResourceProvider getResourceProvider(Map<String, Object> authenticationInfo) throws LoginException {
         try {
             LOG.info("Getting DBResourceProvider for {}", rootPath);
-            return new DBResourceProvider(this, rootPath);
+            return new DBResourceProvider(dataFactory);
         } catch (SQLException e) {
             throw new LoginException("Database initialization failed", e);
         }
@@ -79,28 +64,6 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
 
     public ResourceProvider getAdministrativeResourceProvider(Map<String, Object> authenticationInfo) throws LoginException {
         return getResourceProvider(authenticationInfo);
-    }
-
-    ResourceData getResourceData(final String path) {
-        return persistedData.get(path);
-    }
-
-    void putResourceData(final String path, final ResourceData resourceData) {
-        if (resourceData == null) {
-            persistedData.remove(path);
-        } else {
-            persistedData.put(path, resourceData);
-        }
-    }
-
-    Iterable<String> getChildPaths(final String path) {
-        final List<String> children = new ArrayList<String>();
-        for (final String dataPath : persistedData.keySet()) {
-            if (path.equals(ResourceUtil.getParent(dataPath))) {
-                children.add(dataPath);
-            }
-        }
-        return children;
     }
 
     @Activate
@@ -118,10 +81,6 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
             throw new IllegalStateException("Configuration is missing datasource.name property");
         }
 
-        final HashMap<String, Object> accountsProperties = new HashMap<String, Object>();
-        accountsProperties.put("tableName", "accounts");
-        final String path = rootPath + "/accounts";
-        persistedData.put(path, new DBTableResourceData(path, accountsProperties));
         LOG.info("DB Resource Provider Factory for DataSource named [{}] activated", dataSourceName);
     }
 
@@ -131,30 +90,6 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
         //dataSourceName = null;
         dataSourceTracker.close();
         dataSourceTracker = null;
-    }
-
-    private void initDatabase(final DSLContext ctx) throws SQLException {
-        final boolean accountsExists = tableExists(ctx, "accounts");
-        LOG.info("Table accounts exists = {}", accountsExists);
-        if (!accountsExists) {
-            ctx.createTable("accounts")
-                    .column("userid", H2DataType.VARCHAR)
-                    .column("name", H2DataType.VARCHAR)
-                    .column("email", H2DataType.VARCHAR)
-                    .column("balance", H2DataType.INT)
-                    .execute();
-        }
-    }
-
-    private boolean tableExists(final DSLContext ctx, final String tableName) {
-        final List<Table<?>> tables = ctx.meta().getTables();
-        for (final Table<?> table : tables) {
-            final String name = table.getName();
-            if (tableName.equals(name)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public DataSource addingService(final ServiceReference<DataSource> reference) {
@@ -188,9 +123,8 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
     private void registerDataSource(final DataSource ds) {
         try {
             connection = ds.getConnection();
-            dslContext = DSL.using(connection, SQLDialect.H2);
             dataSource = ds;
-            initDatabase(dslContext);
+            dataFactory = new DBResourceDataFactory(connection, rootPath);
             LOG.info("Bound datasource named [{}]", dataSourceName);
         } catch (SQLException e) {
             LOG.error("Failed to create a DB connection for DataSource named [{}]", dataSourceName, e);
@@ -205,9 +139,9 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
         } catch (SQLException e) {
             LOG.error("Failed to close DB connection", e);
         } finally {
-            dslContext = null;
             connection = null;
             dataSource = null;
+            dataFactory = null;
         }
     }
 }

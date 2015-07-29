@@ -23,26 +23,15 @@ public class DBResourceProvider implements ModifyingResourceProvider, DynamicRes
 
     private static final Logger LOG = LoggerFactory.getLogger(DBResourceProvider.class);
 
-    private static final Map<String, String> HIERARCHY;
-
-    static {
-        final HashMap<String, String> hierarchy = new HashMap<String, String>();
-        hierarchy.put("/accounts", "accounts");
-        HIERARCHY = Collections.unmodifiableMap(hierarchy);
-    }
-
-    private final String rootPath;
-
-    private final DBResourceProviderFactory factory;
+    private final ResourceDataFactory factory;
 
     private Map<String, ResourceData> modifiedResources = new HashMap<String, ResourceData>();
 
     private Set<String> deletedResources = new HashSet<String>();
 
 
-    public DBResourceProvider(final DBResourceProviderFactory factory, final String rootPath) throws SQLException {
+    public DBResourceProvider(final ResourceDataFactory factory) throws SQLException {
         this.factory = factory;
-        this.rootPath = rootPath;
     }
 
     public Resource getResource(final ResourceResolver resourceResolver, final HttpServletRequest httpServletRequest, final String path) {
@@ -77,77 +66,43 @@ public class DBResourceProvider implements ModifyingResourceProvider, DynamicRes
     }
 
     public boolean isLive() {
-        // TODO: stub impl
-        return true;
+        return factory.isLive();
     }
 
     public void close() {
-        // TODO: stub impl
+        factory.close();
     }
 
     public Resource create(final ResourceResolver resolver, final String path, final Map<String, Object> properties) throws PersistenceException {
         final DBRecordResourceData dbRecordResourceData = new DBRecordResourceData(path, properties);
+        LOG.info("create resource {}", path);
         deletedResources.remove(path);
         modifiedResources.put(path, dbRecordResourceData);
         return getResource(resolver, path);
-
-        /*
-        LOG.info("create resource {} {}", path, properties);
-        final ValueMapDecorator props = new ValueMapDecorator(properties);
-        final String userid = props.get("userid", "[no userid]");
-        dslContext.insertInto(table)
-                .values(
-                        userid,
-                        props.get("name", "[no name]"),
-                        props.get("email", "[no email]"),
-                        props.get("balance", 0)
-                )
-                .execute();
-
-//                .column("userid", H2DataType.VARCHAR)
-//                .column("name", H2DataType.VARCHAR)
-//                .column("email", H2DataType.VARCHAR)
-//                .column("balance", H2DataType.INT)
-//        if (!modifiedResources.containsKey(path)) {
-//            modifiedResources.put(path, properties);
-//            return new DBRecordResource(dslContext, resolver, path, properties);
-//        }
-//        throw new PersistenceException("Resource already exists");
-
-        final SelectOptionStep<Record> where = dslContext
-                .select()
-                .from(table)
-                .where("\"PUBLIC\".\"accounts\".\"userid\" = '" + userid + "'")
-                .limit(1);
-        final Iterator<Record> results = where.iterator();
-        if (results.hasNext()) {
-            return new DBRecordResource(results.next(), resolver, path);
-        }
-        throw new PersistenceException("Resource already exists");
-        */
     }
 
     public void delete(final ResourceResolver resolver, final String path) throws PersistenceException {
-        LOG.info("remove resource {}", path);
+        LOG.info("delete resource {}", path);
         modifiedResources.remove(path);
         deletedResources.add(path);
     }
 
     public void commit(final ResourceResolver resolver) throws PersistenceException {
-        // TODO: stub impl
+        LOG.info("committing {} resources", modifiedResources.size());
         for (final String path : modifiedResources.keySet()) {
             factory.putResourceData(path, modifiedResources.get(path));
         }
         modifiedResources.clear();
 
+        LOG.info("committing {} deleted resources", deletedResources.size());
         for (final String path : deletedResources) {
             factory.putResourceData(path, null);
         }
         deletedResources.clear();
-        LOG.info("commit changes");
     }
 
     public void revert(final ResourceResolver resolver) {
+        LOG.info("reverting {} changes", modifiedResources.size() + deletedResources.size());
         modifiedResources.clear();
         deletedResources.clear();
     }
