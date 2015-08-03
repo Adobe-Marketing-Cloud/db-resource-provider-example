@@ -1,6 +1,7 @@
 package com.adobe.examples.db.resourceprovider.impl;
 
-import org.apache.sling.api.resource.ResourceUtil;
+import com.adobe.examples.db.resourceprovider.api.ResourceData;
+import com.adobe.examples.db.resourceprovider.api.ResourceDataFactory;
 import org.apache.sling.api.resource.ValueMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,14 +11,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class DBResourceDataFactory implements ResourceDataFactory {
 
@@ -29,28 +28,22 @@ public class DBResourceDataFactory implements ResourceDataFactory {
 
     private boolean closed;
 
-    //TODO: temporary in-memory persistence - DB is ignored for now
-    private final Map<String, ResourceData> persistedData = new ConcurrentHashMap<String, ResourceData>();
-
     public DBResourceDataFactory(final Connection connection, final String rootPath) throws SQLException {
         this.connection = connection;
         this.rootPath = ensureTrailingSlash(rootPath);
         this.closed = false;
 
         initDatabase(this.connection);
-        initPersistence(this.persistedData, this.rootPath);
-    }
-
-    private static void initPersistence(final Map<String, ResourceData> persistedData, final String rootPath) {
-        final HashMap<String, Object> accountsProperties = new HashMap<String, Object>();
-        accountsProperties.put("tableName", "accounts");
-        persistedData.put("accounts", new DBTableResourceData(rootPath + "accounts", accountsProperties));
     }
 
     private static void initDatabase(final Connection connection) throws SQLException {
         final String sql = "CREATE TABLE IF NOT EXISTS ACCOUNTS(USERID VARCHAR(63) PRIMARY KEY, NAME VARCHAR(255), EMAIL VARCHAR2(255), BALANCE INT);";
         final PreparedStatement preparedStatement = connection.prepareStatement(sql);
         preparedStatement.execute();
+    }
+
+    public ResourceData createResourceData(final String path, final Map<String, Object> properties) {
+        return new DBResourceData(path, "db/record", "db", properties);
     }
 
     public ResourceData getResourceData(final String path) {
@@ -65,7 +58,7 @@ public class DBResourceDataFactory implements ResourceDataFactory {
                 }
                 final Map<String, Object> properties = new HashMap<String, Object>();
                 properties.put("tableName", tableName);
-                return new DBTableResourceData(path, properties);
+                return new DBResourceData(path, "db/table", "db", properties);
             case 2:
                 final String userid = parts[1];
                 final PreparedStatement preparedStatement;
@@ -74,7 +67,7 @@ public class DBResourceDataFactory implements ResourceDataFactory {
                     preparedStatement.setString(1, userid);
                     preparedStatement.execute();
                     final Map<String, Object> props = resultToProperties(preparedStatement.getResultSet());
-                    return new DBRecordResourceData(path, props);
+                    return createResourceData(path, props);
                 } catch (SQLException e) {
                     LOG.error("Failed to talk to DB", e);
                 }
@@ -118,30 +111,44 @@ public class DBResourceDataFactory implements ResourceDataFactory {
             } catch (SQLException e) {
                 LOG.error("Failed to talk to DB", e);
             }
-            //persistedData.remove(relPath);
         } else {
             try {
-                // TODO: handle and differentiate UPDATE
-                // connection.prepareStatement("UPDATE ACCOUNTS SET USERID=?, NAME=?, EMAIL=?, BALANCE=? WHERE USERID = ?");
-                final PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO ACCOUNTS VALUES(?, ?, ?, ?)");
-                final ValueMap properties = resourceData.getValueMap();
-                preparedStatement.setString(1, userid);
-                preparedStatement.setString(2, properties.get("name", "[no name]"));
-                preparedStatement.setString(3, properties.get("email", "[no email]"));
-                preparedStatement.setInt(4, properties.get("balance", 0));
-                preparedStatement.execute();
-                LOG.info("Added/updated record with userid = {}", userid);
+                final PreparedStatement existence = connection.prepareStatement("SELECT USERID FROM ACCOUNTS WHERE USERID = ?");
+                existence.setString(1, userid);
+                existence.execute();
+                final boolean userExists = existence.getResultSet().first();
+                if (userExists) {
+                    // update
+                    final PreparedStatement update = connection.prepareStatement("UPDATE ACCOUNTS SET USERID=?, NAME=?, EMAIL=?, BALANCE=? WHERE USERID = ?");
+                    final ValueMap properties = resourceData.getValueMap();
+                    update.setString(1, userid);
+                    update.setString(2, properties.get("name", "[no name]"));
+                    update.setString(3, properties.get("email", "[no email]"));
+                    update.setInt(4, properties.get("balance", 0));
+                    update.setString(5, userid);
+                    update.execute();
+                    LOG.info("Updated record with userid = {}", userid);
+                } else {
+                    // add
+                    final PreparedStatement insert = connection.prepareStatement("INSERT INTO ACCOUNTS VALUES(?, ?, ?, ?)");
+                    final ValueMap properties = resourceData.getValueMap();
+                    insert.setString(1, userid);
+                    insert.setString(2, properties.get("name", "[no name]"));
+                    insert.setString(3, properties.get("email", "[no email]"));
+                    insert.setInt(4, properties.get("balance", 0));
+                    insert.execute();
+                    LOG.info("Added/updated record with userid = {}", userid);
+                }
             } catch (SQLException e) {
                 LOG.error("Failed to talk to DB", e);
             }
-            // persistedData.put(relPath, resourceData);
         }
     }
 
     public Iterable<String> getChildPaths(final String path) {
         final String relPath = relativizePath(rootPath, path);
 
-        if (relPath.contains("/")) { // records don't have children
+        if (relPath.contains("/")) { // records don't have children, only tables do
             return Collections.emptySet();
         }
 

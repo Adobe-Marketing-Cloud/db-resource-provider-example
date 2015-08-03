@@ -1,5 +1,7 @@
 package com.adobe.examples.db.resourceprovider.impl;
 
+import com.adobe.examples.db.resourceprovider.api.ResourceData;
+import com.adobe.examples.db.resourceprovider.api.ResourceDataFactory;
 import org.apache.sling.api.resource.DynamicResourceProvider;
 import org.apache.sling.api.resource.ModifyingResourceProvider;
 import org.apache.sling.api.resource.PersistenceException;
@@ -11,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -51,7 +52,7 @@ public class DBResourceProvider implements ModifyingResourceProvider, DynamicRes
         }
 
         if (resourceData != null) {
-            return new DBResource(resourceResolver, resourceData);
+            return new DBResource(resourceResolver, this, resourceData);
         }
         return null;
     }
@@ -74,11 +75,19 @@ public class DBResourceProvider implements ModifyingResourceProvider, DynamicRes
     }
 
     public Resource create(final ResourceResolver resolver, final String path, final Map<String, Object> properties) throws PersistenceException {
-        final DBRecordResourceData dbRecordResourceData = new DBRecordResourceData(path, properties);
         LOG.info("create resource {}", path);
+        final ResourceData resourceData = factory.createResourceData(path, properties);
         deletedResources.remove(path);
-        modifiedResources.put(path, dbRecordResourceData);
+        modifiedResources.put(path, resourceData);
         return getResource(resolver, path);
+    }
+
+    void modified(final DBResource resource) {
+        final String path = resource.getPath();
+        LOG.info("modify resource {}", path);
+        final ResourceData resourceData = factory.createResourceData(path, resource.getValueMap());
+        deletedResources.remove(path);
+        modifiedResources.put(path, resourceData);
     }
 
     public void delete(final ResourceResolver resolver, final String path) throws PersistenceException {

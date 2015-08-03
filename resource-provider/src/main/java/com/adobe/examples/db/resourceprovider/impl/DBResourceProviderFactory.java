@@ -85,9 +85,8 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
     }
 
     @Deactivate
-    public void deactivate(BundleContext context, Map<String, Object> properties) {
+    public void deactivate() {
         LOG.info("Deactivating DB Resource Provider Factory for DataSource [{}]", dataSourceName);
-        //dataSourceName = null;
         dataSourceTracker.close();
         dataSourceTracker = null;
     }
@@ -114,7 +113,9 @@ public class DBResourceProviderFactory implements ResourceProviderFactory, Servi
 
     public void removedService(final ServiceReference<DataSource> reference, final DataSource service) {
         if (dataSourceReference == reference) {
-            LOG.info("DataSource named [{}] has disappeared. Deactivating service.", dataSourceName);
+            if (dataSourceTracker != null) { // prevent misleading log message on deactivate (dataSourceTracker.close())
+                LOG.info("DataSource named [{}] has disappeared. Deactivating service.", dataSourceName);
+            }
             unregisterDataSource();
             dataSourceReference = null;
         }

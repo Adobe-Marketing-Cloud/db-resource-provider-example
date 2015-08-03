@@ -14,10 +14,26 @@ To install on a local AEM 6 instance running on port `4502`
 For development it is also useful to only update the bundle
 
     mvn clean install -P installBundle -pl resource-provider
-    
-Testing CRUD with curl:
 
-    curl -X POST -u admin:admin -F"./userid=john" -F"./name=John Doe" -F":nameHint=john" "http://localhost:4502/examples/db/accounts/*"
+Testing CRUD with curl
+
+Create:
+
+    curl -X POST -u admin:admin -F"./userid=john" -F"./name=John Doe" -F"./email=jdoe@example.org" -F":nameHint=john" "http://localhost:4502/examples/db/accounts/*"
+
+Read (in the browser):
+
+    http://localhost:4502/examples/db/accounts.tidy.-1.json
+    or
+    http://localhost:4502/examples/db/accounts/john.tidy.-1.json
+
+Update:
+
+    curl -X POST -u admin:admin -F"./balance=100" "http://localhost:4502/examples/db/accounts/john"
+
+Delete:
+
+    curl -X POST -u admin:admin -F":operation=delete" "http://localhost:4502/examples/db/accounts/john"
 
 Rendering the result in a browser:
 
